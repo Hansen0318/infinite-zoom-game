@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#090b12">
+<title>Infinite Zoom: Hidden Worlds</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#090b12;color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{touch-action:none}.app{height:100%;display:flex;flex-direction:column}
+.hud{height:76px;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(9,11,18,.94);z-index:2}
+.eyebrow{font-size:10px;letter-spacing:2px;opacity:.6;margin:0 0 3px}.hud h1{font-size:20px;margin:0;font-weight:700}
+.progress{display:flex;flex-direction:column;text-align:right;gap:3px}.progress strong{font-size:14px}.progress span{font-size:11px;opacity:.6}
+.game{position:relative;flex:1;min-height:0;overflow:hidden;background:#111827}
+canvas{display:block;width:100%;height:100%;cursor:grab}.dragging{cursor:grabbing}
+.hint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);padding:9px 13px;border-radius:999px;background:rgba(0,0,0,.58);backdrop-filter:blur(8px);font-size:12px;white-space:nowrap;pointer-events:none;transition:opacity .4s}
+.panel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(4,6,12,.55);backdrop-filter:blur(5px);z-index:3}
+.card{width:min(88%,360px);padding:28px;border:1px solid rgba(255,255,255,.15);border-radius:22px;background:rgba(14,18,30,.94);text-align:center;box-shadow:0 20px 70px rgba(0,0,0,.45)}
+.card h2{margin:0 0 8px;font-size:30px}.card p{margin:0 0 20px;line-height:1.6;color:#cbd5e1}
+button{border:0;border-radius:12px;padding:12px 18px;font-size:15px;font-weight:700;background:#fff;color:#111;cursor:pointer}
+.footer{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#090b12;font-size:11px;color:#8b93a7}.footer button{padding:8px 12px;font-size:12px;background:#1b2233;color:#fff}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="hud">
+  <div><p class="eyebrow">INFINITE ZOOM</p><h1>Hidden Worlds</h1></div>
+  <div class="progress"><strong id="level">1 / 5</strong><span id="status">尋找隱藏目標</span></div>
+</header>
+<div class="game" id="game">
+  <canvas id="canvas"></canvas>
+  <div class="hint" id="hint">拖曳探索・滾輪／雙指縮放</div>
+  <div class="panel" id="panel" hidden>
+    <div class="card">
+      <p class="eyebrow">WORLD FOUND</p>
+      <h2 id="panelTitle">找到了！</h2>
+      <p id="panelText">你發現了通往下一個世界的入口。</p>
+      <button id="next">下一層</button>
+    </div>
+  </div>
+</div>
+<footer class="footer"><button id="reset">重新開始</button><span>Demo · 5 Worlds</span></footer>
+</div>
+
+<script>
+const canvas=document.getElementById("canvas"),ctx=canvas.getContext("2d");
+const levelEl=document.getElementById("level"),statusEl=document.getElementById("status");
+const panel=document.getElementById("panel"),panelTitle=document.getElementById("panelTitle"),panelText=document.getElementById("panelText");
+const nextBtn=document.getElementById("next"),resetBtn=document.getElementById("reset"),hint=document.getElementById("hint");
+let W=1,H=1,dpr=1,level=0,scale=1,tx=0,ty=0,drag=false,lastX=0,lastY=0,lastDist=0;
+let found=false, raf=0;
+
+const worlds=[
+ {name:"森林之眼",target:"古老的月門",bg:"#18251e",accent:"#7dd3a5"},
+ {name:"月門之內",target:"漂浮的藍色種子",bg:"#171d35",accent:"#93c5fd"},
+ {name:"種子世界",target:"沉睡的白色獸影",bg:"#241c32",accent:"#ddd6fe"},
+ {name:"獸影之眼",target:"遠方的金色城市",bg:"#302317",accent:"#f6d365"},
+ {name:"最後一層",target:"無盡的黑色圓環",bg:"#11131c",accent:"#f8fafc"}
+];
+
+function resize(){
+ const r=canvas.getBoundingClientRect(); dpr=Math.min(devicePixelRatio||1,2);
+ W=Math.max(1,Math.floor(r.width*dpr)); H=Math.max(1,Math.floor(r.height*dpr));
+ canvas.width=W;canvas.height=H;ctx.setTransform(dpr,0,0,dpr,0,0);
+ render();
+}
+function vw(){return canvas.clientWidth} function vh(){return canvas.clientHeight}
+function resetView(){scale=1;tx=0;ty=0;found=false}
+function levelText(){return `${level+1} / ${worlds.length}`}
+function startLevel(){
+ resetView(); levelEl.textContent=levelText(); statusEl.textContent="尋找隱藏目標"; panel.hidden=true;
+ hint.textContent="拖曳探索・滾輪／雙指縮放"; hint.style.opacity="1"; setTimeout(()=>hint.style.opacity=".45",2200); render();
+}
+function worldPoint(){
+ const s=Math.min(vw(),vh()); const spread=s*.30;
+ const angle=-0.45+level*.9;
+ return {x:vw()/2+Math.cos(angle)*spread,y:vh()/2+Math.sin(angle)*spread*.72};
+}
+function drawWorld(){
+ const w=worlds[level], cw=vw(), ch=vh(), cx=cw/2, cy=ch/2;
+ ctx.fillStyle=w.bg;ctx.fillRect(0,0,cw,ch);
+ ctx.save();ctx.translate(tx,ty);ctx.translate(cx,cy);ctx.scale(scale,scale);ctx.translate(-cx,-cy);
+ // atmospheric layers
+ for(let i=0;i<90;i++){
+   const x=(i*83+level*131)%cw, y=(i*47+level*79)%ch, r=1+(i%4);
+   ctx.fillStyle=`rgba(255,255,255,${.025+(i%5)*.008})`;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+ }
+ // nested world portal
+ const p=worldPoint(), portalR=Math.min(cw,ch)*.13;
+ ctx.lineWidth=10;ctx.strokeStyle=w.accent;ctx.globalAlpha=.18;
+ ctx.beginPath();ctx.arc(p.x,p.y,portalR*1.35,0,Math.PI*2);ctx.stroke();
+ ctx.globalAlpha=.9;ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,portalR,0,Math.PI*2);ctx.stroke();
+ ctx.globalAlpha=.16;ctx.fillStyle=w.accent;ctx.beginPath();ctx.arc(p.x,p.y,portalR*.88,0,Math.PI*2);ctx.fill();
+ // distinctive level art
+ ctx.globalAlpha=1;ctx.lineCap="round";
+ if(level===0) forest(p,portalR,w);
+ if(level===1) moonGate(p,portalR,w);
+ if(level===2) seedWorld(p,portalR,w);
+ if(level===3) city(p,portalR,w);
+ if(level===4) finalRing(p,portalR,w);
+ ctx.restore();
+}
+function forest(p,r,w){
+ ctx.strokeStyle="#355b45";ctx.lineWidth=18;
+ for(let i=-4;i<=4;i++){let x=vw()/2+i*75;ctx.beginPath();ctx.moveTo(x,vh());ctx.lineTo(x-30, p.y+90);ctx.stroke()}
+ ctx.fillStyle="#274634";
+ for(let i=0;i<18;i++){let x=(i*113)%vw(),y=80+(i*67)%180;ctx.beginPath();ctx.arc(x,y,30+(i%4)*8,0,7);ctx.fill()}
+ ctx.fillStyle="#b8e0c2";ctx.beginPath();ctx.arc(p.x,p.y,r*.72,0,7);ctx.fill();
+ ctx.fillStyle="#17261f";ctx.beginPath();ctx.arc(p.x,p.y,r*.5,0,7);ctx.fill();
+}
+function moonGate(p,r,w){
+ ctx.strokeStyle="#536a9e";ctx.lineWidth=24;ctx.beginPath();ctx.arc(p.x,p.y,r*.72,Math.PI,0);ctx.stroke();
+ ctx.strokeStyle="#9bb7ff";ctx.lineWidth=4;ctx.beginPath();ctx.arc(p.x,p.y,r*.72,Math.PI,0);ctx.stroke();
+ for(let i=0;i<18;i++){let a=i/18*Math.PI*2;let x=p.x+Math.cos(a)*r*1.8,y=p.y+Math.sin(a)*r*1.2;ctx.fillStyle=i%3?"#6f86c8":"#dbeafe";ctx.beginPath();ctx.arc(x,y,2+(i%3),0,7);ctx.fill()}
+}
+function seedWorld(p,r,w){
+ ctx.fillStyle="#efe9ff";ctx.beginPath();ctx.ellipse(p.x,p.y,r*.55,r*.75,-.4,0,7);ctx.fill();
+ ctx.strokeStyle="#a78bfa";ctx.lineWidth=5;ctx.beginPath();ctx.ellipse(p.x,p.y,r*.55,r*.75,-.4,0,7);ctx.stroke();
+ ctx.strokeStyle="#6ee7b7";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(p.x,p.y+r*.6);ctx.quadraticCurveTo(p.x-20,p.y+r*1.3,p.x-55,p.y+r*1.45);ctx.stroke();
+}
+function city(p,r,w){
+ ctx.fillStyle="#f7d27a";
+ for(let i=0;i<9;i++){let x=p.x-r*1.1+i*r*.28;let h=r*(.35+(i%4)*.18);ctx.fillRect(x,p.y+r*.7-h,r*.18,h)}
+ ctx.fillStyle="#fef3c7";ctx.beginPath();ctx.arc(p.x,p.y-r*.25,r*.38,0,7);ctx.fill();
+}
+function finalRing(p,r,w){
+ ctx.strokeStyle="#f8fafc";ctx.lineWidth=7;ctx.beginPath();ctx.arc(p.x,p.y,r*.72,0,7);ctx.stroke();
+ ctx.strokeStyle="#64748b";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,r*.45,0,7);ctx.stroke();
+ ctx.fillStyle="#020617";ctx.beginPath();ctx.arc(p.x,p.y,r*.38,0,7);ctx.fill();
+}
+function render(){drawWorld();raf=requestAnimationFrame(()=>{cancelAnimationFrame(raf);});}
+function screenToWorld(x,y){return {x:(x-tx),y:(y-ty)}}
+function targetHit(x,y){
+ const p=worldPoint(), r=Math.min(vw(),vh())*.15;
+ const dx=x-(p.x+tx),dy=y-(p.y+ty);
+ return Math.hypot(dx,dy)<r*1.25;
+}
+function foundTarget(){
+ if(found)return;found=true;statusEl.textContent="目標已找到";panelTitle.textContent=level===worlds.length-1?"完成！":"找到了！";
+ panelText.textContent=level===worlds.length-1?"你完成了第一版 Infinite Zoom Demo。":"你發現了「"+worlds[level].target+"」。";
+ nextBtn.textContent=level===worlds.length-1?"再玩一次":"下一層";panel.hidden=false;
+}
+canvas.addEventListener("pointerdown",e=>{drag=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);canvas.classList.add("dragging")});
+canvas.addEventListener("pointermove",e=>{if(!drag)return;tx+=e.clientX-lastX;ty+=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;render()});
+canvas.addEventListener("pointerup",e=>{drag=false;canvas.classList.remove("dragging");if(Math.abs(tx)<3&&Math.abs(ty)<3)if(targetHit(e.clientX,e.clientY-76))foundTarget()});
+canvas.addEventListener("wheel",e=>{e.preventDefault();const old=scale;scale=Math.max(.65,Math.min(5,scale*Math.exp(-e.deltaY*.001)));const mx=e.offsetX,my=e.offsetY;tx=mx-(mx-tx)*(scale/old);ty=my-(my-ty)*(scale/old);render()},{passive:false});
+canvas.addEventListener("touchstart",e=>{if(e.touches.length===2){lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)}},{passive:false});
+canvas.addEventListener("touchmove",e=>{if(e.touches.length!==2)return;e.preventDefault();const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(lastDist){scale=Math.max(.65,Math.min(5,scale*(d/lastDist)));render()}lastDist=d},{passive:false});
+canvas.addEventListener("touchend",()=>lastDist=0);
+nextBtn.onclick=()=>{if(level===worlds.length-1)level=0;else level++;startLevel()};
+resetBtn.onclick=()=>{level=0;startLevel()};
+window.addEventListener("resize",resize);
+startLevel();resize();
+</script>
+</body>
+</html>
