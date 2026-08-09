@@ -54,15 +54,26 @@ const $=id=>document.getElementById(id),vw=()=>canvas.clientWidth,vh=()=>canvas.
 const layer1Image=new Image();
 layer1Image.src='layer1.png';
 
+function imageRect(){
+ const nw=layer1Image.naturalWidth, nh=layer1Image.naturalHeight;
+ if(!nw || !nh) return {x:0,y:0,w:vw(),h:vh(),s:1};
+ const s=Math.max(vw()/nw,vh()/nh);
+ const w=nw*s,h=nh*s;
+ return {x:(vw()-w)/2,y:(vh()-h)/2,w,h,s};
+}
 function entry(){
  const w=vw(),h=vh();
+ if(level===0 && layer1Image.complete && layer1Image.naturalWidth){
+  const r=imageRect();
+  // 第一層入口：原圖中的龍眼位置；使用原始圖片座標比例，不會因裁切而跑位。
+  return {x:r.x+r.w*0.536,y:r.y+r.h*0.365};
+ }
  return [
-  {x:w*.69,y:h*.37},
   {x:w*.31,y:h*.58},
   {x:w*.64,y:h*.39},
   {x:w*.30,y:h*.35},
   {x:w*.5,y:h*.5}
- ][level];
+ ][level-1] || {x:w/2,y:h/2};
 }
 function resize(){
  dpr=Math.min(devicePixelRatio||1,2);
@@ -89,7 +100,9 @@ function drawScene(o){
  // 第一層使用真正的山海經 Artwork。
  // 注意：這裡不畫入口標記，讓玩家自行尋找龍眼。
  if(level===0 && layer1Image.complete && layer1Image.naturalWidth){
-   ctx.drawImage(layer1Image,0,0,vw(),vh());
+   // 保持原始圖片比例，以 cover 填滿遊戲區域；不拉伸變形。
+   const r=imageRect();
+   ctx.drawImage(layer1Image,r.x,r.y,r.w,r.h);
    return;
  }
 
