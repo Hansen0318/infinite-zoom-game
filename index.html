@@ -6,59 +6,166 @@
 <title>山海經 · Infinite Zoom Puzzle</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#090b12;color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-body{touch-action:none}.app{height:100%;display:flex;flex-direction:column}
-.hud{height:76px;flex:0 0 76px;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#090b12}
+body{touch-action:none}.app{height:100%;display:flex;flex-direction:column}.hud{height:76px;flex:0 0 76px;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#090b12}
 .eyebrow{font-size:10px;letter-spacing:2px;opacity:.6;margin:0 0 3px}.hud h1{font-size:20px;margin:0}.progress{text-align:right}.progress strong{font-size:14px}.progress span{display:block;font-size:11px;opacity:.6;margin-top:3px}
 .game{position:relative;flex:1;min-height:0;overflow:hidden;background:#111827}canvas{display:block;width:100%;height:100%;cursor:grab}.dragging{cursor:grabbing}
-.hint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);padding:9px 13px;border-radius:999px;background:#0009;font-size:12px;white-space:nowrap;pointer-events:none;transition:opacity .4s}
+.hint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);padding:9px 13px;border-radius:999px;background:#0009;font-size:12px;white-space:nowrap;pointer-events:none}
 .entering{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:12px 18px;border-radius:999px;background:#0a0e18dd;border:1px solid #ffffff28;opacity:0;pointer-events:none;transition:.2s}.entering.show{opacity:1}
-.finish[hidden]{display:none}.finish{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#04060c88;backdrop-filter:blur(3px);z-index:3}.finish-card{width:min(88%,380px);padding:26px;border:1px solid #ffffff26;border-radius:22px;background:#0e121ef0;text-align:center}.finish-card h2{margin:0 0 8px}.finish-card p{line-height:1.6;color:#cbd5e1}.finish-card button,.footer button{border:0;border-radius:10px;padding:10px 14px;background:#fff;color:#111;font-weight:700}
+.finish[hidden]{display:none}.finish{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#04060c88;backdrop-filter:blur(3px);z-index:3}
+.finish-card{width:min(88%,380px);padding:26px;border:1px solid #ffffff26;border-radius:22px;background:#0e121ef0;text-align:center}.finish-card h2{margin:0 0 8px}.finish-card p{line-height:1.6;color:#cbd5e1}
+.finish-card button,.footer button{border:0;border-radius:10px;padding:10px 14px;background:#fff;color:#111;font-weight:700}
 .footer{height:54px;flex:0 0 54px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#090b12;font-size:11px;color:#8b93a7}.footer button{background:#1b2233;color:#fff;font-size:12px}
 @media(max-width:560px){.hud{height:68px;flex-basis:68px;padding:10px 13px}.hud h1{font-size:17px}.hint{bottom:12px;font-size:11px}.footer{height:48px;flex-basis:48px}}
 </style>
 </head>
 <body>
 <div class="app">
-<header class="hud"><div><p class="eyebrow">SHAN HAI JING · INFINITE ZOOM</p><h1>Hidden Worlds</h1></div><div class="progress"><strong id="level">1 / 5</strong><span id="status">尋找入口</span></div></header>
-<div class="game"><canvas id="canvas"></canvas><div class="hint" id="hint">找到入口・拖到中央・持續 Zoom</div><div class="entering" id="entering">進入下一層…</div><div class="finish" id="finish" hidden><div class="finish-card"><p class="eyebrow">WORLD COMPLETE</p><h2>第一關完成</h2><p>你已穿越五層山海經 Infinite Zoom 世界。</p><button id="restart">重新探索</button></div></div></div>
+<header class="hud">
+  <div><p class="eyebrow">SHAN HAI JING · INFINITE ZOOM</p><h1>Hidden Worlds</h1></div>
+  <div class="progress"><strong id="level">1 / 5</strong><span id="status">尋找入口</span></div>
+</header>
+<div class="game">
+  <canvas id="canvas"></canvas>
+  <div class="hint" id="hint">找到入口・拖到中央・持續 Zoom</div>
+  <div class="entering" id="entering">進入下一層…</div>
+  <div class="finish" id="finish" hidden>
+    <div class="finish-card"><p class="eyebrow">WORLD COMPLETE</p><h2>第一關完成</h2>
+      <p>你已穿越五層山海經 Infinite Zoom 世界。</p><button id="restart">重新探索</button>
+    </div>
+  </div>
+</div>
 <footer class="footer"><button id="reset">重置</button><span>山海經 · Demo 1</span></footer>
 </div>
+
 <script>
 const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
-const levelEl=document.getElementById('level'),statusEl=document.getElementById('status'),hint=document.getElementById('hint'),entering=document.getElementById('entering'),finish=document.getElementById('finish');
+const levelEl=document.getElementById('level'),statusEl=document.getElementById('status');
+const hint=document.getElementById('hint'),entering=document.getElementById('entering'),finish=document.getElementById('finish');
 let dpr=1,level=0,scale=1,tx=0,ty=0,drag=false,lastX=0,lastY=0,lastDist=0,done=false,transitioning=false;
 const ENTRY_ZOOM=3.6,MAX_ZOOM=5.5,CENTER_TOL=70;
 const layers=[
-{name:'巨龍',entry:'龍眼',bg:'#111d1a',accent:'#c9a66b'},
-{name:'龍眼中的森林',entry:'白澤',bg:'#18251e',accent:'#b8e0c2'},
-{name:'白澤',entry:'白澤之眼',bg:'#211b28',accent:'#ddd6fe'},
-{name:'眼中的天空',entry:'月亮',bg:'#111a31',accent:'#f6d365'},
-{name:'月亮世界',entry:'無盡之環',bg:'#0c0f18',accent:'#f8fafc'}
+ ['巨龍','龍眼','#111d1a','#c9a66b'],
+ ['龍眼中的森林','白澤','#18251e','#b8e0c2'],
+ ['白澤','白澤之眼','#211b28','#ddd6fe'],
+ ['眼中的天空','月亮','#111a31','#f6d365'],
+ ['月亮世界','無盡之環','#0c0f18','#f8fafc']
 ];
-function vw(){return canvas.clientWidth}function vh(){return canvas.clientHeight}function c(){return{x:vw()/2,y:vh()/2}}
-function resize(){dpr=Math.min(devicePixelRatio||1,2);canvas.width=vw()*dpr;canvas.height=vh()*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);render()}
-function entry(){const w=vw(),h=vh();return[{x:w*.69,y:h*.37},{x:w*.31,y:h*.58},{x:w*.64,y:h*.39},{x:w*.30,y:h*.35},{x:w*.5,y:h*.5}][level]}
-function screenEntry(){const p=entry(),o=c();return{x:o.x+(p.x-o.x)*scale+tx,y:o.y+(p.y-o.y)*scale+ty}}
-function centered(){const p=screenEntry(),o=c();return Math.hypot(p.x-o.x,p.y-o.y)<CENTER_TOL}
-function start(){scale=1;tx=0;ty=0;transitioning=false;levelEl.textContent=`${level+1} / 5`;statusEl.textContent='尋找入口';hint.textContent=level===4?'找到無盡之環並放大':'找到下一層入口・把它移到中央再 Zoom';hint.style.opacity=1;setTimeout(()=>hint.style.opacity=.55,2200);render()}
-function atmosphere(w,h){for(let i=0;i<65;i++){let x=(i*97+level*43)%w,y=(i*53+level*89)%h,r=1+i%3;ctx.fillStyle=`rgba(255,255,255,${.025+(i%4)*.01})`;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()}}
-function marker(p){const a=layers[level],r=Math.min(vw(),vh())*.095;ctx.save();ctx.strokeStyle=a.accent;ctx.globalAlpha=.25;ctx.lineWidth=10;ctx.beginPath();ctx.arc(p.x,p.y,r*1.35,0,7);ctx.stroke();ctx.globalAlpha=.85;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.stroke();ctx.globalAlpha=.12;ctx.fillStyle=a.accent;ctx.beginPath();ctx.arc(p.x,p.y,r*.82,0,7);ctx.fill();ctx.restore()}
-function dragon(o){ctx.save();ctx.strokeStyle='#4b665b';ctx.lineWidth=48;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(o.x-270,o.y+160);ctx.bezierCurveTo(o.x-120,o.y+40,o.x-180,o.y-190,o.x+40,o.y-150);ctx.bezierCurveTo(o.x+210,o.y-120,o.x+270,o.y+40,o.x+140,o.y+170);ctx.stroke();ctx.strokeStyle='#708d77';ctx.lineWidth=6;ctx.stroke();let p=entry();ctx.fillStyle='#d8c7a2';ctx.beginPath();ctx.ellipse(p.x,p.y,55,38,-.2,0,7);ctx.fill();ctx.fillStyle='#111';ctx.beginPath();ctx.ellipse(p.x+5,p.y,12,25,-.1,0,7);ctx.fill();ctx.restore()}
-function forest(o){ctx.fillStyle='#274634';for(let i=0;i<22;i++){let x=i*113%vw(),y=70+i*71%(vh()*.55);ctx.beginPath();ctx.arc(x,y,28+i%4*9,0,7);ctx.fill()}ctx.strokeStyle='#355b45';ctx.lineWidth=24;for(let i=-5;i<=5;i++){let x=o.x+i*90;ctx.beginPath();ctx.moveTo(x,vh());ctx.lineTo(x-35,o.y+50);ctx.stroke()}let p=entry();ctx.fillStyle='#e8eee7';ctx.beginPath();ctx.ellipse(p.x,p.y,48,72,-.35,0,7);ctx.fill()}
-function beast(o){ctx.fillStyle='#e8e5ee';ctx.beginPath();ctx.ellipse(o.x,o.y+40,170,105,0,0,7);ctx.fill();ctx.beginPath();ctx.arc(o.x-115,o.y-20,80,0,7);ctx.fill();ctx.beginPath();ctx.arc(o.x+115,o.y-20,80,0,7);ctx.fill();let p=entry();ctx.fillStyle='#b8a7d5';ctx.beginPath();ctx.arc(p.x,p.y,28,0,7);ctx.fill();ctx.fillStyle='#16121d';ctx.beginPath();ctx.arc(p.x,p.y,9,0,7);ctx.fill()}
-function sky(o){ctx.fillStyle='#25365c';ctx.beginPath();ctx.arc(o.x,o.y,230,0,7);ctx.fill();for(let i=0;i<35;i++){let a=i*1.71,r=90+i%8*38,x=o.x+Math.cos(a)*r,y=o.y+Math.sin(a)*r*.7;ctx.fillStyle=i%5?'#9fb2d8':'#f8fafc';ctx.beginPath();ctx.arc(x,y,2+i%3,0,7);ctx.fill()}let p=entry();ctx.fillStyle='#f7d27a';ctx.beginPath();ctx.arc(p.x,p.y,58,0,7);ctx.fill()}
-function moon(o){ctx.fillStyle='#151a27';ctx.beginPath();ctx.arc(o.x,o.y,250,0,7);ctx.fill();for(let i=0;i<18;i++){let x=o.x-170+i*71%340,y=o.y-150+i*47%300;ctx.fillStyle='#30394d';ctx.beginPath();ctx.arc(x,y,5+i%5*3,0,7);ctx.fill()}let p=entry();ctx.strokeStyle='#f8fafc';ctx.lineWidth=9;ctx.beginPath();ctx.arc(p.x,p.y,95,0,7);ctx.stroke();ctx.strokeStyle='#667085';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,62,0,7);ctx.stroke();ctx.fillStyle='#03050a';ctx.beginPath();ctx.arc(p.x,p.y,49,0,7);ctx.fill()}
-function render(){let w=vw(),h=vh(),o=c(),a=layers[level];ctx.clearRect(0,0,w,h);ctx.fillStyle=a.bg;ctx.fillRect(0,0,w,h);ctx.save();ctx.translate(o.x+tx,o.y+ty);ctx.scale(scale,scale);ctx.translate(-o.x,-o.y);atmosphere(w,h);if(level===0)dragon(o);if(level===1)forest(o);if(level===2)beast(o);if(level===3)sky(o);if(level===4)moon(o);marker(entry());ctx.restore()}
-function check(){if(!transitioning&&!done&&centered()&&scale>=ENTRY_ZOOM){transitioning=true;statusEl.textContent='進入下一層…';entering.classList.add('show');setTimeout(()=>{entering.classList.remove('show');if(level===4){done=true;finish.hidden=false;statusEl.textContent='第一關完成'}else{level++;start()}},550)}}
-function pan(dx,dy){tx+=dx;ty+=dy;const lim=260*scale;tx=Math.max(-lim,Math.min(lim,tx));ty=Math.max(-lim,Math.min(lim,ty));render();check()}
-function zoomAt(f,x,y){const old=scale,next=Math.max(1,Math.min(MAX_ZOOM,scale*f)),o=c();const wx=(x-o.x-tx)/old,wy=(y-o.y-ty)/old;scale=next;tx=x-o.x-wx*scale;ty=y-o.y-wy*scale;render();check()}
+const $=id=>document.getElementById(id),vw=()=>canvas.clientWidth,vh=()=>canvas.clientHeight,C=()=>({x:vw()/2,y:vh()/2});
+const layer1Image=new Image();
+layer1Image.src='layer1.png';
+
+function entry(){
+ const w=vw(),h=vh();
+ return [
+  {x:w*.69,y:h*.37},
+  {x:w*.31,y:h*.58},
+  {x:w*.64,y:h*.39},
+  {x:w*.30,y:h*.35},
+  {x:w*.5,y:h*.5}
+ ][level];
+}
+function resize(){
+ dpr=Math.min(devicePixelRatio||1,2);
+ canvas.width=vw()*dpr;canvas.height=vh()*dpr;
+ ctx.setTransform(dpr,0,0,dpr,0,0);render();
+}
+function start(){
+ scale=1;tx=0;ty=0;transitioning=false;
+ levelEl.textContent=`${level+1} / 5`;
+ statusEl.textContent='尋找入口';
+ hint.textContent=level===4?'找到無盡之環並放大':'找到下一層入口・把它移到中央再 Zoom';
+ finish.hidden=true;render();
+}
+function marker(p){
+ let a=layers[level][3],r=Math.min(vw(),vh())*.095;
+ ctx.save();ctx.strokeStyle=a;ctx.globalAlpha=.28;ctx.lineWidth=10;
+ ctx.beginPath();ctx.arc(p.x,p.y,r*1.35,0,7);ctx.stroke();
+ ctx.globalAlpha=.9;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.stroke();ctx.restore();
+}
+function drawScene(o){
+ let bg=layers[level][2];
+ ctx.fillStyle=bg;ctx.fillRect(0,0,vw(),vh());
+
+ // 第一層使用真正的山海經 Artwork。
+ // 注意：這裡不畫入口標記，讓玩家自行尋找龍眼。
+ if(level===0 && layer1Image.complete && layer1Image.naturalWidth){
+   ctx.drawImage(layer1Image,0,0,vw(),vh());
+   return;
+ }
+
+ ctx.fillStyle='rgba(255,255,255,.035)';
+ for(let i=0;i<65;i++){ctx.beginPath();ctx.arc((i*97+level*43)%vw(),(i*53+level*89)%vh(),1+i%3,0,7);ctx.fill();}
+ let p=entry();
+
+ if(level===0){
+  ctx.strokeStyle='#4b665b';ctx.lineWidth=48;ctx.lineCap='round';ctx.beginPath();
+  ctx.moveTo(o.x-270,o.y+160);ctx.bezierCurveTo(o.x-120,o.y+40,o.x-180,o.y-190,o.x+40,o.y-150);
+  ctx.bezierCurveTo(o.x+210,o.y-120,o.x+270,o.y+40,o.x+140,o.y+170);ctx.stroke();
+  ctx.fillStyle='#d8c7a2';ctx.beginPath();ctx.ellipse(p.x,p.y,55,38,-.2,0,7);ctx.fill();
+  ctx.fillStyle='#111';ctx.beginPath();ctx.ellipse(p.x+5,p.y,12,25,0,0,7);ctx.fill();
+ }
+ if(level===1){
+  ctx.fillStyle='#274634';for(let i=0;i<22;i++){ctx.beginPath();ctx.arc(i*113%vw(),70+i*71%(vh()*.55),28+i%4*9,0,7);ctx.fill();}
+  ctx.fillStyle='#e8eee7';ctx.beginPath();ctx.ellipse(p.x,p.y,48,72,-.35,0,7);ctx.fill();
+ }
+ if(level===2){
+  ctx.fillStyle='#e8e5ee';ctx.beginPath();ctx.ellipse(o.x,o.y+40,170,105,0,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(o.x-115,o.y-20,80,0,7);ctx.fill();ctx.beginPath();ctx.arc(o.x+115,o.y-20,80,0,7);ctx.fill();
+  ctx.fillStyle='#b8a7d5';ctx.beginPath();ctx.arc(p.x,p.y,28,0,7);ctx.fill();
+  ctx.fillStyle='#16121d';ctx.beginPath();ctx.arc(p.x,p.y,9,0,7);ctx.fill();
+ }
+ if(level===3){
+  ctx.fillStyle='#25365c';ctx.beginPath();ctx.arc(o.x,o.y,230,0,7);ctx.fill();
+  ctx.fillStyle='#9fb2d8';for(let i=0;i<35;i++){let a=i*1.71,r=90+i%8*38;ctx.beginPath();ctx.arc(o.x+Math.cos(a)*r,o.y+Math.sin(a)*r*.7,2+i%3,0,7);ctx.fill();}
+  ctx.fillStyle='#f7d27a';ctx.beginPath();ctx.arc(p.x,p.y,58,0,7);ctx.fill();
+ }
+ if(level===4){
+  ctx.fillStyle='#151a27';ctx.beginPath();ctx.arc(o.x,o.y,250,0,7);ctx.fill();
+  ctx.strokeStyle='#f8fafc';ctx.lineWidth=9;ctx.beginPath();ctx.arc(p.x,p.y,95,0,7);ctx.stroke();
+  ctx.fillStyle='#03050a';ctx.beginPath();ctx.arc(p.x,p.y,49,0,7);ctx.fill();
+ }
+ marker(p);
+}
+function render(){
+ let o=C();ctx.clearRect(0,0,vw(),vh());
+ ctx.save();ctx.translate(o.x+tx,o.y+ty);ctx.scale(scale,scale);ctx.translate(-o.x,-o.y);drawScene(o);ctx.restore();
+}
+function centered(){
+ let p=entry(),o=C(),sx=o.x+(p.x-o.x)*scale+tx,sy=o.y+(p.y-o.y)*scale+ty;
+ return Math.hypot(sx-o.x,sy-o.y)<CENTER_TOL;
+}
+function check(){
+ if(!transitioning&&!done&&centered()&&scale>=ENTRY_ZOOM){
+  transitioning=true;statusEl.textContent='進入下一層…';entering.classList.add('show');
+  setTimeout(()=>{
+   entering.classList.remove('show');
+   if(level===4){done=true;finish.hidden=false;statusEl.textContent='第一關完成';}
+   else{level++;start();}
+  },550);
+ }
+}
+function pan(dx,dy){
+ tx+=dx;ty+=dy;let lim=260*scale;
+ tx=Math.max(-lim,Math.min(lim,tx));ty=Math.max(-lim,Math.min(lim,ty));render();check();
+}
+function zoomAt(f,x,y){
+ let old=scale,next=Math.max(1,Math.min(MAX_ZOOM,scale*f)),o=C();
+ let wx=(x-o.x-tx)/old,wy=(y-o.y-ty)/old;
+ scale=next;tx=x-o.x-wx*scale;ty=y-o.y-wy*scale;render();check();
+}
 canvas.onpointerdown=e=>{drag=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);canvas.classList.add('dragging')};
 canvas.onpointermove=e=>{if(drag){pan(e.clientX-lastX,e.clientY-lastY);lastX=e.clientX;lastY=e.clientY}};
 canvas.onpointerup=()=>{drag=false;canvas.classList.remove('dragging')};
 canvas.onwheel=e=>{e.preventDefault();zoomAt(Math.exp(-e.deltaY*.001),e.offsetX,e.offsetY)};
 canvas.ontouchstart=e=>{if(e.touches.length===2)lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)};
-canvas.ontouchmove=e=>{if(e.touches.length===2){e.preventDefault();let d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(lastDist)zoomAt(d/lastDist,vw()/2,vh()/2);lastDist=d}};
+canvas.ontouchmove=e=>{
+ if(e.touches.length===2){e.preventDefault();let d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+ if(lastDist)zoomAt(d/lastDist,vw()/2,vh()/2);lastDist=d;}
+};
 canvas.ontouchend=()=>lastDist=0;
-document.getElementById('reset').onclick=()=>{level=0;done=false;finish.hidden=true;start()};document.getElementById('restart').onclick=()=>{level=0;done=false;finish.hidden=true;start()};addEventListener('resize',resize);start();resize();
+$('reset').onclick=()=>{level=0;done=false;start()};
+$('restart').onclick=()=>{level=0;done=false;start()};
+addEventListener('resize',resize);layer1Image.onload=render;start();resize();
 </script>
-</body></html>
+</body>
+</html>
