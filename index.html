@@ -53,27 +53,31 @@ const layers=[
 const $=id=>document.getElementById(id),vw=()=>canvas.clientWidth,vh=()=>canvas.clientHeight,C=()=>({x:vw()/2,y:vh()/2});
 const layer1Image=new Image();
 layer1Image.src='layer1.png';
+const layer2Image=new Image();
+layer2Image.src='layer2.png';
 
-function imageRect(){
- const nw=layer1Image.naturalWidth, nh=layer1Image.naturalHeight;
+function fitRect(img){
+ const nw=img.naturalWidth, nh=img.naturalHeight;
  if(!nw || !nh) return {x:0,y:0,w:vw(),h:vh(),s:1};
  const s=Math.max(vw()/nw,vh()/nh);
  const w=nw*s,h=nh*s;
  return {x:(vw()-w)/2,y:(vh()-h)/2,w,h,s};
 }
+function imageRect(){ return fitRect(layer1Image); }
+function activeImage(){
+ return level===0 ? layer1Image : level===1 ? layer2Image : null;
+}
 function entry(){
  const w=vw(),h=vh();
  if(level===0 && layer1Image.complete && layer1Image.naturalWidth){
   const r=imageRect();
-  // 第一層入口：原圖中的龍眼位置；使用原始圖片座標比例，不會因裁切而跑位。
   return {x:r.x+r.w*0.580,y:r.y+r.h*0.350};
  }
- return [
-  {x:w*.31,y:h*.58},
-  {x:w*.64,y:h*.39},
-  {x:w*.30,y:h*.35},
-  {x:w*.5,y:h*.5}
- ][level-1] || {x:w/2,y:h/2};
+ if(level===1 && layer2Image.complete && layer2Image.naturalWidth){
+  const r=fitRect(layer2Image);
+  return {x:r.x+r.w*0.722,y:r.y+r.h*0.537};
+ }
+ return {x:w/2,y:h/2};
 }
 function resize(){
  dpr=Math.min(devicePixelRatio||1,2);
@@ -81,7 +85,7 @@ function resize(){
  ctx.setTransform(dpr,0,0,dpr,0,0);render();
 }
 function start(){
- scale=level===0?INITIAL_SCALE:1;tx=0;ty=0;transitioning=false;
+ scale=(level===0||level===1)?INITIAL_SCALE:1;tx=0;ty=0;transitioning=false;
  levelEl.textContent=`${level+1} / 5`;
  statusEl.textContent='尋找入口';
  hint.textContent=level===4?'找到無盡之環並放大':'找到下一層入口・把它移到中央再 Zoom';
@@ -100,9 +104,13 @@ function drawScene(o){
  // 第一層使用真正的山海經 Artwork。
  // 注意：這裡不畫入口標記，讓玩家自行尋找龍眼。
  if(level===0 && layer1Image.complete && layer1Image.naturalWidth){
-   // 保持原始圖片比例，以 cover 填滿遊戲區域；不拉伸變形。
    const r=imageRect();
    ctx.drawImage(layer1Image,r.x,r.y,r.w,r.h);
+   return;
+ }
+ if(level===1 && layer2Image.complete && layer2Image.naturalWidth){
+   const r=fitRect(layer2Image);
+   ctx.drawImage(layer2Image,r.x,r.y,r.w,r.h);
    return;
  }
 
@@ -159,8 +167,8 @@ function check(){
 }
 function pan(dx,dy){
  tx+=dx;ty+=dy;
- if(level===0 && layer1Image.complete && layer1Image.naturalWidth){
-  const r=imageRect(), w=r.w*scale, h=r.h*scale;
+ if((level===0||level===1) && activeImage() && activeImage().complete && activeImage().naturalWidth){
+  const r=fitRect(activeImage()), w=r.w*scale, h=r.h*scale;
   const maxX=Math.max(0,(w-vw())/2+24), maxY=Math.max(0,(h-vh())/2+24);
   tx=Math.max(-maxX,Math.min(maxX,tx));
   ty=Math.max(-maxY,Math.min(maxY,ty));
@@ -174,8 +182,8 @@ function zoomAt(f,x,y){
  let old=scale,next=Math.max(1,Math.min(MAX_ZOOM,scale*f)),o=C();
  let wx=(x-o.x-tx)/old,wy=(y-o.y-ty)/old;
  scale=next;tx=x-o.x-wx*scale;ty=y-o.y-wy*scale;
- if(level===0 && layer1Image.complete && layer1Image.naturalWidth){
-  const r=imageRect(), w=r.w*scale, h=r.h*scale;
+ if((level===0||level===1) && activeImage() && activeImage().complete && activeImage().naturalWidth){
+  const r=fitRect(activeImage()), w=r.w*scale, h=r.h*scale;
   const maxX=Math.max(0,(w-vw())/2+24), maxY=Math.max(0,(h-vh())/2+24);
   tx=Math.max(-maxX,Math.min(maxX,tx));ty=Math.max(-maxY,Math.min(maxY,ty));
  }
@@ -218,7 +226,7 @@ canvas.onpointercancel=endPointer;
 canvas.onwheel=e=>{e.preventDefault();zoomAt(Math.exp(-e.deltaY*.001),e.offsetX,e.offsetY)};
 $('reset').onclick=()=>{level=0;done=false;start()};
 $('restart').onclick=()=>{level=0;done=false;start()};
-addEventListener('resize',resize);layer1Image.onload=render;start();resize();
+addEventListener('resize',resize);layer1Image.onload=render;layer2Image.onload=render;start();resize();
 </script>
 </body>
 </html>
