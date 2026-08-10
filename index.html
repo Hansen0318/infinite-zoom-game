@@ -42,7 +42,7 @@ const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
 const levelEl=document.getElementById('level'),statusEl=document.getElementById('status');
 const hint=document.getElementById('hint'),entering=document.getElementById('entering'),finish=document.getElementById('finish');
 let dpr=1,level=0,scale=1,tx=0,ty=0,drag=false,lastX=0,lastY=0,lastDist=0,done=false,transitioning=false;
-const ENTRY_ZOOM=3.6,MAX_ZOOM=5.5,CENTER_TOL=70;
+const INITIAL_SCALE=0.82,ENTRY_ZOOM=3.6,MAX_ZOOM=5.5,CENTER_TOL=70;
 const layers=[
  ['巨龍','龍眼','#111d1a','#c9a66b'],
  ['龍眼中的森林','白澤','#18251e','#b8e0c2'],
@@ -81,7 +81,7 @@ function resize(){
  ctx.setTransform(dpr,0,0,dpr,0,0);render();
 }
 function start(){
- scale=1;tx=0;ty=0;transitioning=false;
+ scale=level===0?INITIAL_SCALE:1;tx=0;ty=0;transitioning=false;
  levelEl.textContent=`${level+1} / 5`;
  statusEl.textContent='尋找入口';
  hint.textContent=level===4?'找到無盡之環並放大':'找到下一層入口・把它移到中央再 Zoom';
@@ -158,13 +158,28 @@ function check(){
  }
 }
 function pan(dx,dy){
- tx+=dx;ty+=dy;let lim=260*scale;
- tx=Math.max(-lim,Math.min(lim,tx));ty=Math.max(-lim,Math.min(lim,ty));render();check();
+ tx+=dx;ty+=dy;
+ if(level===0 && layer1Image.complete && layer1Image.naturalWidth){
+  const r=imageRect(), w=r.w*scale, h=r.h*scale;
+  const maxX=Math.max(0,(w-vw())/2+24), maxY=Math.max(0,(h-vh())/2+24);
+  tx=Math.max(-maxX,Math.min(maxX,tx));
+  ty=Math.max(-maxY,Math.min(maxY,ty));
+ }else{
+  let lim=260*scale;
+  tx=Math.max(-lim,Math.min(lim,tx));ty=Math.max(-lim,Math.min(lim,ty));
+ }
+ render();check();
 }
 function zoomAt(f,x,y){
  let old=scale,next=Math.max(1,Math.min(MAX_ZOOM,scale*f)),o=C();
  let wx=(x-o.x-tx)/old,wy=(y-o.y-ty)/old;
- scale=next;tx=x-o.x-wx*scale;ty=y-o.y-wy*scale;render();check();
+ scale=next;tx=x-o.x-wx*scale;ty=y-o.y-wy*scale;
+ if(level===0 && layer1Image.complete && layer1Image.naturalWidth){
+  const r=imageRect(), w=r.w*scale, h=r.h*scale;
+  const maxX=Math.max(0,(w-vw())/2+24), maxY=Math.max(0,(h-vh())/2+24);
+  tx=Math.max(-maxX,Math.min(maxX,tx));ty=Math.max(-maxY,Math.min(maxY,ty));
+ }
+ render();check();
 }
 canvas.onpointerdown=e=>{drag=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId);canvas.classList.add('dragging')};
 canvas.onpointermove=e=>{if(drag){pan(e.clientX-lastX,e.clientY-lastY);lastX=e.clientX;lastY=e.clientY}};
