@@ -55,6 +55,7 @@ const layer1Image=new Image(); layer1Image.src='layer1.png';
 const layer2Image=new Image(); layer2Image.src='layer2.png';
 const layer3Image=new Image(); layer3Image.src='layer3.png';
 const layer4Image=new Image(); layer4Image.src='layer4.png';
+const layer5Image=new Image(); layer5Image.src='layer5.png';
 
 function fitRect(img){
  const nw=img.naturalWidth,nh=img.naturalHeight;
@@ -64,7 +65,7 @@ function fitRect(img){
 }
 function imageRect(){return fitRect(layer1Image)}
 function activeImage(){
- return level===0?layer1Image:level===1?layer2Image:level===2?layer3Image:level===3?layer4Image:null;
+ return level===0?layer1Image:level===1?layer2Image:level===2?layer3Image:level===3?layer4Image:level===4?layer5Image:null;
 }
 function entry(){
  const w=vw(),h=vh();
@@ -84,8 +85,9 @@ function start(){
  levelEl.textContent=`${level+1} / 5`;
  statusEl.textContent='尋找入口';
  if(level===3)hint.textContent='找到下一層入口・把它移到中央再 Zoom';
- else hint.textContent=level===4?'找到無盡之環並放大':'找到下一層入口・把它移到中央再 Zoom';
+ else hint.textContent=level===4?'第一關完成':'找到下一層入口・把它移到中央再 Zoom';
  finish.hidden=true;render();
+ if(level===4){ statusEl.textContent='第一關完成'; setTimeout(()=>{ if(level===4){done=true;finish.hidden=false;} },700); }
 }
 function marker(p){
  let a=layers[level][3],r=Math.min(vw(),vh())*.095;
@@ -99,6 +101,7 @@ function drawScene(o){
  if(level===1&&layer2Image.complete&&layer2Image.naturalWidth){const r=fitRect(layer2Image);ctx.drawImage(layer2Image,r.x,r.y,r.w,r.h);return}
  if(level===2&&layer3Image.complete&&layer3Image.naturalWidth){const r=fitRect(layer3Image);ctx.drawImage(layer3Image,r.x,r.y,r.w,r.h);return}
  if(level===3&&layer4Image.complete&&layer4Image.naturalWidth){const r=fitRect(layer4Image);ctx.drawImage(layer4Image,r.x,r.y,r.w,r.h);return}
+ if(level===4&&layer5Image.complete&&layer5Image.naturalWidth){const r=fitRect(layer5Image);ctx.drawImage(layer5Image,r.x,r.y,r.w,r.h);return}
 
  ctx.fillStyle='rgba(255,255,255,.035)';
  for(let i=0;i<65;i++){ctx.beginPath();ctx.arc((i*97+level*43)%vw(),(i*53+level*89)%vh(),1+i%3,0,7);ctx.fill()}
@@ -130,7 +133,7 @@ function drawScene(o){
   ctx.strokeStyle='#f8fafc';ctx.lineWidth=9;ctx.beginPath();ctx.arc(p.x,p.y,95,0,7);ctx.stroke();
   ctx.fillStyle='#03050a';ctx.beginPath();ctx.arc(p.x,p.y,49,0,7);ctx.fill();
  }
- marker(p);
+ if(level<4) marker(p);
 }
 function render(){
  let o=C();ctx.clearRect(0,0,vw(),vh());
@@ -141,6 +144,7 @@ function centered(){
  return Math.hypot(sx-o.x,sy-o.y)<CENTER_TOL;
 }
 function check(){
+ if(level===4)return;
  if(!transitioning&&!done&&centered()&&scale>=ENTRY_ZOOM){
   transitioning=true;statusEl.textContent='進入下一層…';entering.classList.add('show');
   setTimeout(()=>{
@@ -191,7 +195,7 @@ canvas.onwheel=e=>{e.preventDefault();zoomAt(Math.exp(-e.deltaY*.001),e.offsetX,
 $('reset').onclick=()=>{level=0;done=false;start()};
 $('restart').onclick=()=>{level=0;done=false;start()};
 addEventListener('resize',resize);
-layer1Image.onload=render;layer2Image.onload=render;layer3Image.onload=render;layer4Image.onload=render;
+layer1Image.onload=render;layer2Image.onload=render;layer3Image.onload=render;layer4Image.onload=render;layer5Image.onload=render;
 start();resize();
 </script>
 </body>
