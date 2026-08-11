@@ -71,7 +71,7 @@ function entry(){
  if(level===0&&layer1Image.complete&&layer1Image.naturalWidth){const r=imageRect();return{x:r.x+r.w*.580,y:r.y+r.h*.350}}
  if(level===1&&layer2Image.complete&&layer2Image.naturalWidth){const r=fitRect(layer2Image);return{x:r.x+r.w*.760,y:r.y+r.h*.540}}
  if(level===2&&layer3Image.complete&&layer3Image.naturalWidth){const r=fitRect(layer3Image);return{x:r.x+r.w*.490,y:r.y+r.h*.430}}
- if(level===3&&layer4Image.complete&&layer4Image.naturalWidth){const r=fitRect(layer4Image);return{x:r.x+r.w*.500,y:r.y+r.h*.500}}
+ if(level===3&&layer4Image.complete&&layer4Image.naturalWidth){const r=fitRect(layer4Image);return{x:r.x+r.w*.810,y:r.y+r.h*.110}}
  return{x:w/2,y:h/2};
 }
 function resize(){
@@ -83,7 +83,7 @@ function start(){
  scale=(level===0||level===1)?INITIAL_SCALE:1;tx=0;ty=0;transitioning=false;
  levelEl.textContent=`${level+1} / 5`;
  statusEl.textContent='尋找入口';
- if(level===3)hint.textContent='找到月亮・把它移到中央再 Zoom';
+ if(level===3)hint.textContent='找到下一層入口・把它移到中央再 Zoom';
  else hint.textContent=level===4?'找到無盡之環並放大':'找到下一層入口・把它移到中央再 Zoom';
  finish.hidden=true;render();
 }
@@ -141,7 +141,6 @@ function centered(){
  return Math.hypot(sx-o.x,sy-o.y)<CENTER_TOL;
 }
 function check(){
- if(level===3&&!layer4EntryReady)return;
  if(!transitioning&&!done&&centered()&&scale>=ENTRY_ZOOM){
   transitioning=true;statusEl.textContent='進入下一層…';entering.classList.add('show');
   setTimeout(()=>{
@@ -194,7 +193,6 @@ $('restart').onclick=()=>{level=0;done=false;start()};
 addEventListener('resize',resize);
 layer1Image.onload=render;layer2Image.onload=render;layer3Image.onload=render;layer4Image.onload=render;
 start();resize();
-const layer4EntryReady=false;
 </script>
 </body>
 </html>
