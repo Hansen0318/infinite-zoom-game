@@ -58,6 +58,7 @@ const layer2Image=new Image(); layer2Image.src='layer2.png';
 const layer3Image=new Image(); layer3Image.src='layer3.png';
 const layer4Image=new Image(); layer4Image.src='layer4.png';
 const layer5Image=new Image(); layer5Image.src='layer5.png';
+const images=[layer1Image,layer2Image,layer3Image,layer4Image,layer5Image];
 
 function fitRect(img){
  const nw=img.naturalWidth,nh=img.naturalHeight;
@@ -66,7 +67,9 @@ function fitRect(img){
  return{x:(vw()-w)/2,y:(vh()-h)/2,w,h,s};
 }
 function imageRect(){return fitRect(layer1Image)}
-function activeImage(){return images[level]||null}
+function activeImage(){
+ return level===0?layer1Image:level===1?layer2Image:level===2?layer3Image:level===3?layer4Image:level===4?layer5Image:null;
+}
 function entry(){
  const w=vw(),h=vh();
  if(level===0&&layer1Image.complete&&layer1Image.naturalWidth){const r=imageRect();return{x:r.x+r.w*.580,y:r.y+r.h*.350}}
@@ -84,16 +87,24 @@ function start(){
  scale=(level===0||level===1)?INITIAL_SCALE:1;tx=0;ty=0;transitioning=false;
  levelEl.textContent=`${level+1} / 5`;
  statusEl.textContent='尋找入口';
- hint.textContent='找到下一層入口・把它移到中央再 Zoom';
+ if(level===3)hint.textContent='找到下一層入口・把它移到中央再 Zoom';
+ else hint.textContent=level===4?'第一關完成':'找到下一層入口・把它移到中央再 Zoom';
  finish.hidden=true;render();
  if(level===4){ statusEl.textContent='第一關完成'; setTimeout(()=>{ if(level===4){done=true;finish.hidden=false;} },700); }
 }
+function marker(p){
+ let a=layers[level][3],r=Math.min(vw(),vh())*.095;
+ ctx.save();ctx.strokeStyle=a;ctx.globalAlpha=.28;ctx.lineWidth=10;
+ ctx.beginPath();ctx.arc(p.x,p.y,r*1.35,0,7);ctx.stroke();
+ ctx.globalAlpha=.9;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.stroke();ctx.restore();
+}
 function drawScene(o){
+ let bg=layers[level][2];ctx.fillStyle=bg;ctx.fillRect(0,0,vw(),vh());
  const img=activeImage();
- ctx.fillStyle=layers[level][2];ctx.fillRect(0,0,vw(),vh());
  if(img&&img.complete&&img.naturalWidth){
-  const r=fitRect(img);ctx.drawImage(img,r.x,r.y,r.w,r.h);
+  const r=fitRect(img);ctx.drawImage(img,r.x,r.y,r.w,r.h);return;
  }
+ if(level<4) marker(entry());
 }
 function render(){
  let o=C();ctx.clearRect(0,0,vw(),vh());
@@ -105,7 +116,7 @@ function centered(){
 }
 function check(){
  if(level===4)return;
- if(level<4&&!transitioning&&!done&&centered()&&scale>=ENTRY_ZOOM){
+ if(!transitioning&&!done&&centered()&&scale>=ENTRY_ZOOM){
   transitioning=true;statusEl.textContent='進入下一層…';entering.classList.add('show');
   setTimeout(()=>{
    entering.classList.remove('show');
@@ -158,7 +169,7 @@ addEventListener('resize',resize);
 const loading=document.getElementById('loading');
 Promise.all(images.map(img=>new Promise((resolve,reject)=>{
  if(img.complete&&img.naturalWidth) resolve();
- else {img.onload=resolve;img.onerror=reject}
+ else {img.onload=resolve;img.onerror=()=>reject(new Error('image load failed'))}
 }))).then(()=>{
  loading.classList.add('hidden');
  start();
